@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -36,23 +38,29 @@ def item_dell_sc_enclfan(line):
     return "Encl %s Fan %s" % (encl, fan)
 
 def parse_dell_sc_enclfan(string_table):
-    return string_table
-
-def discover_dell_sc_enclfan(section):
-    for line in section:
-        name = item_dell_sc_enclfan(line)
-        yield Service(item=name)
-
-def check_dell_sc_enclfan(item, params, section):
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if item_dell_sc_enclfan(line) == item:
-            enclfan_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            yield Result(state=enclfan_state[1], summary="%s, Speed is %s, State is %s" % (line[2],line[3],enclfan_state[0]))
+    section = {}
+    for line in string_table:
+        name = item_dell_sc_enclfan(line)
+        section[name] = {
+            "state": state.get(int(line[1]), ('unknown', State.UNKNOWN)),
+            "location": line[2],
+            "speed": line[3],
+        }
+    return section
+
+def discover_dell_sc_enclfan(section) -> DiscoveryResult:
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_enclfan(item, params, section) -> CheckResult:
+    if item in section:
+        data = section[item]
+        yield Result(state=data["state"][1], summary="%s, Speed is %s, State is %s" % (data["location"], data["speed"], data["state"][0]))
 
 
 check_plugin_dell_sc_enclfan = CheckPlugin(

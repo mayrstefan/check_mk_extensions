@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -31,12 +33,6 @@ from cmk.agent_based.v2 import (
 
 
 def parse_dell_sc_sysinfo(string_table):
-    return string_table
-
-def discover_dell_sc_sysinfo(section):
-    yield Service()
-
-def check_dell_sc_sysinfo(section):
     state = {
         1  : ('Other', State.UNKNOWN),
         2  : ('Unknown', State.UNKNOWN),
@@ -46,17 +42,28 @@ def check_dell_sc_sysinfo(section):
         6  : ('non Recoverable', State.CRIT),
     }
 
-    version = section[0][0]
-    servicetag = section[0][1]
-    build = section[0][3]
-    globalState = state.get(int(section[0][2]), ('Unknown', 3))
+    section = {
+        "version": string_table[0][0],
+        "servicetag": string_table[0][1],
+        "build": string_table[0][3],
+        "state": state.get(int(string_table[0][2]), ('Unknown', 3)),
+    }
+    return section
 
-    yield Result(state=globalState[1], summary="Version %s, ServiceTag %s, Build %s, State %s" % (
-        version,
-        servicetag,
-        build,
-        globalState[0])
-    )
+def discover_dell_sc_sysinfo(section) -> DiscoveryResult:
+    yield Service()
+
+def check_dell_sc_sysinfo(section) -> CheckResult:
+    if section:
+        yield Result(
+            state=section["state"][1],
+            summary="Version %s, ServiceTag %s, Build %s, State %s" % (
+                section["version"],
+                section["servicetag"],
+                section["build"],
+                section["state"][0],
+            )
+        )
 
 
 check_plugin_dell_sc_sysinfo = CheckPlugin(

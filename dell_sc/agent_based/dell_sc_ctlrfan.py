@@ -21,6 +21,8 @@ from cmk.plugins.lib.fan import check_fan
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -40,12 +42,12 @@ def item_dell_sc_ctlrfan(line):
 def parse_dell_sc_ctlrfan(string_table):
     return string_table
 
-def discover_dell_sc_ctlrfan(section):
+def discover_dell_sc_ctlrfan(section) -> DiscoveryResult:
     for line in section:
         name = item_dell_sc_ctlrfan(line)
         yield Service(item=name)
 
-def check_dell_sc_ctlrfan(item, params, section):
+def check_dell_sc_ctlrfan(item, params, section) -> CheckResult:
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),

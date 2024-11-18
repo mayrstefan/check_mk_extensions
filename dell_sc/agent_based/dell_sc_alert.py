@@ -17,10 +17,10 @@
 # Boston, MA 02110-1301 USA.
 
 
-from cmk.checkengine.checkresults import state_markers
-
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -33,14 +33,7 @@ from cmk.agent_based.v2 import (
 
 
 def parse_dell_sc_alert(string_table):
-    print(string_table)
-    return {}
-    #return string_table
-
-def discover_dell_sc_alert(section):
-    yield Service()
-
-def check_dell_sc_alert(section):
+    section ={'alerts': []}
     state = {
         1  : ('complete', State.OK),
         2  : ('critical', State.CRIT),
@@ -66,26 +59,28 @@ def check_dell_sc_alert(section):
         2  : 'unknown',
     }
 
-    alerts = []
-    res = State.OK
-    for nbr, istate, definition, icat, ctime, message, itype, ack, act in section:
+    for nbr, istate, definition, icat, ctime, message, itype, ack, act in string_table:
         if act == "1" and ack == "2":
             alert_state = state.get(int(istate), ('unknown', State.UNKNOWN))
-            if int(alert_state[1]) > int(res):
-                res = alert_state[1]
-            alerts.append("%s %s %s on %s: %s%s" % (
-                alert_state[0],
-                category.get(int(icat), 'unknown'),
-                definition,
-                ctime,
-                message,
-                state_markers[int(alert_state[1])]))
+            section['alerts'].append((
+                alert_state[1], "%s %s %s on %s: %s" % (
+                    alert_state[0],
+                    category.get(int(icat), 'unknown'),
+                    definition,
+                    ctime,
+                    message)))
+    return section
+    
+def discover_dell_sc_alert(section) -> DiscoveryResult:
+    yield Service()
 
-    if not alerts:
-        alerts = ['No Alerts']
-
-    yield Result(state=res, summary="%s" % alerts[0], details="%s\n%s" % (alerts[0],"\n".join(alerts[1:])))
-
+def check_dell_sc_alert(section) -> CheckResult:
+    if section['alerts']:
+        for alert in section['alerts']:
+            yield Result(state=alert[0], notice=alert[1])
+    else:
+        yield Result(state=State.OK, summary='No Alerts')
+    
 
 check_plugin_dell_sc_alert = CheckPlugin(
     name="dell_sc_alert",

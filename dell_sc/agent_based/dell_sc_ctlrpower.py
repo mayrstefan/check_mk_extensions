@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -36,23 +38,29 @@ def item_dell_sc_ctlrpower(line):
     return "Ctlr %s Power %s" % (encl, power)
 
 def parse_dell_sc_ctlrpower(string_table):
-    return string_table
-
-def discover_dell_sc_ctlrpower(section):
-    for line in section:
-        name = item_dell_sc_ctlrpower(line)
-        yield Service(item=name)
-
-def check_dell_sc_ctlrpower(item, section):
+    section = {}
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if item_dell_sc_ctlrpower(line) == item:
-            ctlrpower_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            yield Result(state=ctlrpower_state[1], summary="State is %s" % ctlrpower_state[0])
+    for line in string_table:
+        name = item_dell_sc_ctlrpower(line)
+        ctlrpower_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
+        section[name] = {
+             'state': ctlrpower_state[1],
+             'desc': ctlrpower_state[0],
+             'supply': line[2],
+        }
+    return section
+
+def discover_dell_sc_ctlrpower(section) -> DiscoveryResult:
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_ctlrpower(item, section) -> CheckResult:
+    if item in section:
+        yield Result(state=section[item]['state'], summary="State is %s from %s" % (section[item]['desc'], section[item]['supply']))
 
 
 check_plugin_dell_sc_ctlrpower = CheckPlugin(

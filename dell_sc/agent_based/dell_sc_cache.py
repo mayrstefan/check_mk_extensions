@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -31,14 +33,21 @@ from cmk.agent_based.v2 import (
 
 
 def parse_dell_sc_cache(string_table):
-    return string_table
+    section = {}
+    for line in string_table:
+        section[line[0]] = {
+            'status': int(line[0]),
+            'name': line[2],
+            'battery_status': int(line[3]),
+            'battery_expiry': line[4],
+        }
+    return section
 
-def discover_dell_sc_cache(section):
-    for line in section:
-        name=line[0]
-        yield Service(item=name)
+def discover_dell_sc_cache(section) -> DiscoveryResult:
+    for id in section.keys():
+        yield Service(item=id)
 
-def check_dell_sc_cache(item, section):
+def check_dell_sc_cache(item, section) -> CheckResult:
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
@@ -51,16 +60,16 @@ def check_dell_sc_cache(item, section):
         3  : 'expired',
     }
 
-    for line in section:
-        if line[0] == item:
-            cache_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
+    if item in section:
+        data = section[item]
+        cache_state = state.get(data['status'], ('unknown', State.UNKNOWN))
 
-            yield Result(state=cache_state[1], summary="%s, Battery Expiration: %s (%s), State is %s" % (
-                line[2],
-                line[4],
-                batt.get(int(line[3]), line[3]),
-                cache_state[0])
-            )
+        yield Result(state=cache_state[1], summary="%s, Battery Expiration: %s (%s), State is %s" % (
+            data['name'],
+            data['battery_expiry'],
+            batt.get(data['battery_status'], data['battery_status']),
+            cache_state[0])
+        )
 
 
 check_plugin_dell_sc_cache = CheckPlugin(

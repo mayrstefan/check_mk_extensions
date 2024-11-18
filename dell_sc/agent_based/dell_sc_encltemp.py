@@ -20,6 +20,8 @@ from cmk.plugins.lib.temperature import check_temperature
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -37,31 +39,33 @@ def item_dell_sc_encltemp(line):
     return "Encl %s Temp %s" % (encl, temp)
 
 def parse_dell_sc_encltemp(string_table):
-    return string_table
-
-def discover_dell_sc_encltemp(section):
-    for line in section:
-        name = item_dell_sc_encltemp(line)
-        yield Service(item=name)
-
-def check_dell_sc_encltemp(item, params, section):
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if item_dell_sc_encltemp(line) == item:
-            encltemp_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            temp = int(line[3] or 0)
-            yield from check_temperature(
-                reading=temp,
-                params=params,
-                #unique_name="dell_sc_encltemp_%s" % item,
-                #value_store=value_store,
-            )
-            yield Result(state=encltemp_state[1], summary="State is %s" % encltemp_state[0])
+    section = {}
+    for line in string_table:
+        name = item_dell_sc_encltemp(line)
+        section[name] = {
+            "state": state.get(int(line[1]), ('unknown', State.UNKNOWN)),
+            "temp": int(line[3] or 0),
+        }
+    return section
 
+def discover_dell_sc_encltemp(section) -> DiscoveryResult:
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_encltemp(item, params, section) -> CheckResult:
+    if item in section:
+        data = section[item]
+        yield from check_temperature(
+            reading=data["temp"],
+            params=params,
+            dev_status=data["state"][1],
+            dev_status_name=data["state"][0],
+            )
 
 check_plugin_dell_sc_encltemp = CheckPlugin(
     name="dell_sc_encltemp",

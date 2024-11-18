@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -36,23 +38,27 @@ def item_dell_sc_power(line):
     return "Encl %s Power %s" % (encl, power)
 
 def parse_dell_sc_power(string_table):
-    return string_table
-
-def discover_dell_sc_power(section):
-    for line in section:
-        name = item_dell_sc_power(line)
-        yield Service(item=name)
-
-def check_dell_sc_power(item, section):
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if item_dell_sc_power(line) == item:
-            power_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            yield Result(state=power_state[1], summary="State is %s" % power_state[0])
+    section = {}
+    for line in string_table:
+        name = item_dell_sc_power(line)
+        section[name] = {
+            "state": state.get(int(line[1]), ('unknown', State.UNKNOWN)),
+        }
+    return section
+
+def discover_dell_sc_power(section) -> DiscoveryResult:
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_power(item, section) -> CheckResult:
+    if item in section:
+        data = section[item]
+        yield Result(state=data["state"][1], summary="State is %s" % data["state"][0])
 
 
 check_plugin_dell_sc_power = CheckPlugin(

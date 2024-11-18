@@ -19,6 +19,8 @@
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
     Service,
     Result,
     SimpleSNMPSection,
@@ -31,23 +33,31 @@ from cmk.agent_based.v2 import (
 
 
 def parse_dell_sc_volume(string_table):
-    return string_table
-
-def discover_dell_sc_volume(section):
-    for line in section:
-        name = line[0]
-        yield Service(item=name)
-
-def check_dell_sc_volume(item, section):
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if line[0] == item:
-            volume_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            yield Result(state=volume_state[1], summary="%s, State is %s" % (line[2],volume_state[0]))
+    section = {}
+    for line in string_table:
+        name = line[0]
+        section[name] =  {
+            "state": state.get(int(line[1]), ('unknown', State.UNKNOWN)),
+            "name": line[2],
+        }
+    return section
+
+def discover_dell_sc_volume(section) -> DiscoveryResult:
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_volume(item, section) -> CheckResult:
+    if item in section:
+        data = section[item]
+        yield Result(
+            state=data["state"][1],
+            summary="%s, State is %s" % (data["name"], data["state"][0])
+        )
 
 
 check_plugin_dell_sc_volume = CheckPlugin(

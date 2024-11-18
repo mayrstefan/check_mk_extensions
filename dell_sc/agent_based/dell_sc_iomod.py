@@ -36,23 +36,28 @@ def item_dell_sc_iomod(line):
     return "Encl %s IOmod %s" % (encl, iomod)
 
 def parse_dell_sc_iomod(string_table):
-    return string_table
-
-def discover_dell_sc_iomod(section):
-    for line in section:
-        name = item_dell_sc_iomod(line)
-        yield Service(item=name)
-
-def check_dell_sc_iomod(item, section):
     state = {
         1  : ('up', State.OK),
         2  : ('down', State.CRIT),
         3  : ('degraded', State.WARN),
     }
-    for line in section:
-        if item_dell_sc_iomod(line) == item:
-            iomod_state = state.get(int(line[1]), ('unknown', State.UNKNOWN))
-            yield Result(state=iomod_state[1], summary="%s, State is %s" % (line[2],iomod_state[0]))
+    section = {}
+    for line in string_table:
+        name = item_dell_sc_iomod(line)
+        section[name] = {
+            "state": state.get(int(line[1]), ('unknown', State.UNKNOWN)),
+            "position": line[2],
+        }
+    return section
+
+def discover_dell_sc_iomod(section):
+    for name in section.keys():
+        yield Service(item=name)
+
+def check_dell_sc_iomod(item, section):
+    if item in section:
+        data = section[item]
+        yield Result(state=data["state"][1], summary="%s, State is %s" % (data["position"], data["state"][0]))
 
 
 check_plugin_dell_sc_iomod = CheckPlugin(
