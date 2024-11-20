@@ -116,18 +116,25 @@ def _valuespec_settings() -> Dictionary:
                     level_direction=LevelDirection.LOWER,
                     prefill_fixed_levels=InputHint((90.0 * _DAY, 60 * _DAY)),
                 )),
-            "warning": DictElement(
-                parameter_form=Integer(
-                    title = Title("Response time to result in warning status"),
-                    unit_symbol = "sec",
-                    prefill = DefaultValue(10),
+            "response_time": DictElement(
+                parameter_form=SimpleLevels[float](
+                    title = Title("Maximum response time."),
+                    form_spec_template=TimeSpan(displayed_magnitudes=[TimeMagnitude.SECOND, TimeMagnitude.MILLISECOND]),
+                    level_direction=LevelDirection.UPPER,
+                    prefill_fixed_levels=InputHint((1.0, 5.0)),
                 )),
-            "critical": DictElement(
-                parameter_form=Integer(
-                    title = Title("Response time to result in critical status"),
-                    unit_symbol = "sec",
-                    prefill = DefaultValue(15),
-                )),
+            # "warning": DictElement(
+            #     parameter_form=Integer(
+            #         title = Title("Response time to result in warning status"),
+            #         unit_symbol = "sec",
+            #         prefill = DefaultValue(10),
+            #     )),
+            # "critical": DictElement(
+            #     parameter_form=Integer(
+            #         title = Title("Response time to result in critical status"),
+            #         unit_symbol = "sec",
+            #         prefill = DefaultValue(15),
+            #     )),
             "timeout": DictElement(
                 parameter_form=Integer(
                     title = Title("Seconds before connection times out"),
@@ -135,7 +142,7 @@ def _valuespec_settings() -> Dictionary:
                     prefill = DefaultValue(10),
             )),
         },
-      ),
+      )
 
 def _form_active_checks_imap() -> Dictionary:
     return Dictionary(
